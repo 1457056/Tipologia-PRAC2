@@ -1,26 +1,43 @@
 ---
 title: 'Pràctica 2: Com realitzar la neteja i l''anàlisi de dades?'
-author: ""
+author: "Gerard Ramos Gambús i Oriol Caravaca Muller"
 date: "2023-01-03"
-output: html_document
+
+output:
+  html_document:
+    df_print: paged
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+toc_depth: 3
+number_sections: true
+theme: lumen
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(corrplot)
+library(car)
+library(caret)
+
 ```
 
-
+##  Carrega
 ```{r read csv}
 heart <- read.csv("heart.csv")
-```
 
+```
+##  Exploració del dataset
 ```{r summary}
+
+str(heart)
 summary(heart)
+
 colSums(is.na(heart))
 colSums(heart == " ")
 ```
 
-
+##  Visualització
 Només se seleccionen les variables on és possible que hi hagi outliers havent vist abans els rangs on es mouen aquestes variables i el summary
 ```{r outliers}
 boxplot(heart$trtbps)
@@ -32,3 +49,79 @@ boxplot(heart$slp)
 boxplot(heart$caa)
 boxplot(heart$thall)
 ```
+
+
+
+
+
+##  Regressió logística.
+
+### Generació dels conjunts d’entrenament i de test
+```{r RL1 }
+set.seed(1234)
+
+split <- sample(c(TRUE, FALSE), nrow(heart), replace=TRUE, prob=c(0.8,0.2))
+train  <- heart[split, ]
+test   <- heart[!split, ]
+```
+### Estimació del model 
+
+####  Estimació model.
+
+```{r RL2}
+model <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,        family=binomial(link=logit))
+summary(model)
+
+```
+
+####  Analisi de col·linealitat 
+
+Al fer un estudi de la col·linealitat, veiem que tant per la matriu de correlacions com utilitzant els coeficients VIF no existeix col·linealitat.
+
+```{r RL3}
+corrplot(cor(heart), method = "number")
+vif(model)
+
+```
+
+####  Model final
+
+Tenint en compte els la diferencia entre nivells de significació ens quedem amb aquelles variables que compleixen p<α on α =0,5. Així doncs obtenim el model final:
+```{r RL4}
+modelF <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,        family=binomial(link=logit))
+summary(modelF)
+
+```
+#### Bondat de l'ajust mitjançant Chi-quadrat.
+Com que el valor p es 0 podem dir que el ModlF, és un model bo.
+```{r RL5}
+chi2<-sum(residuals(modelF,type="pearson")^2)
+d=modelF$df.null-modelF$df.residual
+p=1-pchisq(chi2, df=d)
+
+resp <-c(chi2,d,p)
+names(resp)<-c("Chi-quadrat","Graus" ,"p"  )
+resp
+```
+###  Avaluació del model
+```{r RL6}
+
+convert<-function (val){
+  if(val >=0.5){
+    return(1)
+  }else{
+    return(0)
+  }
+}
+pred<-predict(modelF, newdata = test,type ="response")
+predict<-lapply(pred,convert)
+
+cf<-confusionMatrix(data=as.factor(as.numeric(predict)), reference = as.factor(test$output))
+cf$table
+cf$overall["Accuracy"]
+cf$byClass["Sensitivity"]
+cf$byClass["Specificity"]
+
+```
+
+###  Estudi del OR del model de regressió logistica
