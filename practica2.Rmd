@@ -1,0 +1,34 @@
+---
+title: 'Pràctica 2: Com realitzar la neteja i l''anàlisi de dades?'
+author: ""
+date: "2023-01-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r read csv}
+heart <- read.csv("heart.csv")
+```
+
+```{r summary}
+summary(heart)
+colSums(is.na(heart))
+colSums(heart == " ")
+```
+
+
+Només se seleccionen les variables on és possible que hi hagi outliers havent vist abans els rangs on es mouen aquestes variables i el summary
+```{r outliers}
+boxplot(heart$trtbps)
+boxplot(heart$chol)
+boxplot(heart$restecg)
+boxplot(heart$thalachh)
+boxplot(heart$oldpeak)
+boxplot(heart$slp)
+boxplot(heart$caa)
+boxplot(heart$thall)
+```
