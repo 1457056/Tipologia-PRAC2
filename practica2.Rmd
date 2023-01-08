@@ -76,6 +76,53 @@ heart <- kNN(heart,
 
 ## Anàlisi de dades
 
+```{r sex vs cp}
+counts <- table(heart$sex, heart$cp)
+colors <- c("blue", "lightgrey")
+barplot(prop.table(counts), beside = TRUE, col = colors, 
+        axes = TRUE,
+        xlab = "Gènere",
+        ylab = "Percentatge",
+        main = "Tipus de dolor de pit segons el gènere",
+        legend = c("Dona", "Home"),
+        fill = colors)
+```
+
+Atenent al gràfic, els homes tenen bastantes mes angines típiques que les dones.
+
+```{r trtbps vs chol}
+counts <- table(heart$output, heart$restecg)
+colors <- c("blue", "lightgrey")
+barplot(prop.table(counts), beside = TRUE, col = colors, 
+        axes = TRUE,
+        xlab = "Electrocardiographic results",
+        ylab = "Percentatge",
+        main = "Possibilitat de tenir un atac al cor en funció dels resultats electro",
+        legend = c("Baixa prob", "Alta prob"),
+        fill = colors)
+```
+
+Segons els resultats electrocardiogràfics, hi ha una alta probabilitat de tenir un atac al cor si hi ha anomalies de l'ona ST-T.
+
+```{r segment}
+heart_aux <- heart
+heart_aux["segment_age"] <- cut(heart_aux$age, breaks = c(27,40,55,65,78), labels = c("Jove/Adult", "Adult", "Gent gran", "Avis"))
+```
+
+```{r}
+counts <- table(heart_aux$segment_age, heart$output)
+colors <- c("blue", "lightgrey","black","green")
+barplot(prop.table(counts), beside = TRUE, col = colors, 
+        axes = TRUE,
+        xlab = "Probabilitat 0 baixa - 1 alta",
+        ylab = "Percentatge",
+        main = "Possibilitat de tenir un atac al cor en funció de l'edat",
+        legend = c("Jove/Adult", "Adult", "Gent gran", "Avis"),
+        fill = colors)
+```
+
+Les persones Adultes que tenen entre 40 i 55 anys son les més propenses a patir un atac al cor.
+
 ## Regressió logística.
 
 ### Generació dels conjunts d'entrenament i de test
@@ -109,6 +156,8 @@ vif(model)
 ```
 
 Com es pot veure, no hi ha presència de col·linealitat.
+
+Tampoc es veu una clara correlació entre variables.
 
 ```{r diagnosi}
 qqnorm(heart$output, pch = 1, frame = FALSE)
@@ -176,7 +225,7 @@ El que indica el valor OR de cada una de les variables és:
 
 -   OR=1 indica que no hi ha associació entre variables.
 
--   OR\>1 indica que hi ha associació entre variables, com més gran sigui el número més gran és l\'associació.
+-   OR\>1 indica que hi ha associació entre variables, com més gran sigui el número més gran és l'associació.
 
 Les variables que tenen OR per sobre de 1 les podem considerar com a factors de risc.
 
