@@ -17,17 +17,23 @@ theme: lumen
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(corrplot)
+library(VIM)
 library(car)
 library(caret)
 
 ```
 
-##  Carrega
+## Carrega
+
 ```{r read csv}
 heart <- read.csv("heart.csv")
 
 ```
-##  Exploració del dataset
+
+## Neteja de les dades
+
+### Exploració del dataset
+
 ```{r summary}
 
 str(heart)
@@ -37,8 +43,10 @@ colSums(is.na(heart))
 colSums(heart == " ")
 ```
 
-##  Visualització
+### Visualització
+
 Només se seleccionen les variables on és possible que hi hagi outliers havent vist abans els rangs on es mouen aquestes variables i el summary
+
 ```{r outliers}
 boxplot(heart$trtbps)
 boxplot(heart$chol)
@@ -50,13 +58,28 @@ boxplot(heart$caa)
 boxplot(heart$thall)
 ```
 
+Hi ha presència d'outliers a les variables.
 
+El que es farà és reomplir les variables que més outliers continguin.
 
+```{r find outliers}
+outliers_trtbps <- which(heart$trtbps %in% boxplot.stats(heart$trtbps)$out)
+heart$trtbps[outliers_trtbps] <- NA
+```
 
+```{r fill outliers}
+heart <- kNN(heart, 
+                  variable=c('trtbps'), 
+                  dist_var=c('trtbps','chol'),
+                  imp_var = "FALSE", k = 5)
+```
 
-##  Regressió logística.
+## Anàlisi de dades
 
-### Generació dels conjunts d’entrenament i de test
+## Regressió logística.
+
+### Generació dels conjunts d'entrenament i de test
+
 ```{r RL1 }
 set.seed(1234)
 
@@ -64,9 +87,10 @@ split <- sample(c(TRUE, FALSE), nrow(heart), replace=TRUE, prob=c(0.8,0.2))
 train  <- heart[split, ]
 test   <- heart[!split, ]
 ```
-### Estimació del model 
 
-####  Estimació model.
+### Estimació del model
+
+#### Estimació model.
 
 ```{r RL2}
 model <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,        family=binomial(link=logit))
@@ -74,7 +98,7 @@ summary(model)
 
 ```
 
-####  Analisi de col·linealitat 
+#### Analisi de col·linealitat
 
 Al fer un estudi de la col·linealitat, veiem que tant per la matriu de correlacions com utilitzant els coeficients VIF no existeix col·linealitat.
 
@@ -84,16 +108,31 @@ vif(model)
 
 ```
 
-####  Model final
+Com es pot veure, no hi ha presència de col·linealitat.
 
-Tenint en compte els la diferencia entre nivells de significació ens quedem amb aquelles variables que compleixen p<α on α =0,5. Així doncs obtenim el model final:
+```{r diagnosi}
+qqnorm(heart$output, pch = 1, frame = FALSE)
+qqline(heart$output, col = "steelblue", lwd = 2)
+```
+
+#### Model final
+
+Tenint en compte els la diferencia entre nivells de significació ens quedem amb aquelles variables que compleixen p\<α on α =0,5. Així doncs obtenim el model final:
+
 ```{r RL4}
 modelF <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,        family=binomial(link=logit))
 summary(modelF)
 
 ```
+
+```{r fitted vs ajusted}
+qplot(modelF$fitted.values, modelF$residuals) + geom_smooth(method = "lm")
+```
+
 #### Bondat de l'ajust mitjançant Chi-quadrat.
+
 Com que el valor p es 0 podem dir que el ModlF, és un model bo.
+
 ```{r RL5}
 chi2<-sum(residuals(modelF,type="pearson")^2)
 d=modelF$df.null-modelF$df.residual
@@ -103,9 +142,10 @@ resp <-c(chi2,d,p)
 names(resp)<-c("Chi-quadrat","Graus" ,"p"  )
 resp
 ```
-###  Avaluació del model
-```{r RL6}
 
+### Avaluació del model
+
+```{r RL6}
 convert<-function (val){
   if(val >=0.5){
     return(1)
@@ -124,4 +164,31 @@ cf$byClass["Specificity"]
 
 ```
 
-###  Estudi del OR del model de regressió logistica
+### Estudi del OR del model de regressió logistica
+
+```{r calcul OR}
+exp(coefficients(modelF))
+```
+
+El que indica el valor OR de cada una de les variables és:
+
+-   OR\<1 indica una associació protectora, que vol dir que es poc probable que succeixi un event.
+
+-   OR=1 indica que no hi ha associació entre variables.
+
+-   OR\>1 indica que hi ha associació entre variables, com més gran sigui el número més gran és l\'associació.
+
+Les variables que tenen OR per sobre de 1 les podem considerar com a factors de risc.
+
+### Bondat de l'ajust
+
+```{r sum}
+summary(modelF)
+```
+
+El model és bo ja que la deviança residual és menor a la nul·la.
+
+```{r bondat}
+G <- modelF$null.deviance - modelF$deviance
+G
+```
