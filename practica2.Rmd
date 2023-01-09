@@ -1,21 +1,23 @@
 ---
 title: 'Pràctica 2: Com realitzar la neteja i l''anàlisi de dades?'
 author: "Gerard Ramos Gambús i Oriol Caravaca Muller"
-date: '2023-01-03'
+date: "2023-01-03"
 output:
   html_document:
     df_print: paged
-    toc: true
-    toc_float: true
-    toc_collapsed: true
-toc_depth: 3
-number_sections: true
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+  pdf_document:
+    toc: yes
+toc_depth: 4
+number_sections: yes
 theme: lumen
 ---
 
-
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE,error = TRUE)
+knitr::opts_chunk$set(echo = TRUE)
+Sys.getlocale ("LC_CTYPE")
 library(corrplot)
 library(VIM)
 library(car)
@@ -27,7 +29,7 @@ library(ggeffects)
 
 Carreguem el dataset, observem que s'ha carregat correctament amb 303 observacions i 14 variables.
 ```{r read csv}
-heart <- read.csv("heart.csv")
+heart <- read.csv("C:\\Users\\Oriol\\Desktop\\UOC\\Tipologia i cicle de dades\\prac2\\Tipologia-PRAC2\\heart.csv")
 
 heart_numeric<-heart
 
@@ -39,7 +41,7 @@ heart$exng <- as.factor(heart$exng)
 heart$slp <- as.factor(heart$slp)
 heart$caa <- as.factor(heart$caa)
 heart$thall <- as.factor(heart$thall)
-heart$output <- as.factor(heart$output)
+
 
 str(heart)
 ```
@@ -343,6 +345,16 @@ Apliquem Chi-square test, com que p < 0.05 rebutjem la hipotesis nulla. El sexe 
 
 ### Estimació del model
 
+
+### Generació dels conjunts d'entrenament i de test
+
+```{r RL1 }
+set.seed(1234)
+split <- sample(c(TRUE, FALSE), nrow(heart), replace=TRUE, prob=c(0.8,0.2))
+train  <- heart[split, ]
+test   <- heart[!split, ]
+```
+
 #### Estimació model.
 
 ```{r RL2}
@@ -416,6 +428,9 @@ cf$byClass["Specificity"]
 
 ```{r calcul OR}
 exp(coefficients(modelF))
+
+
+
 ```
 
 El que indica el valor OR de cada una de les variables és:
@@ -441,8 +456,6 @@ G <- modelF$null.deviance - modelF$deviance
 G
 ```
 ```{r }
-
-
 
 
 variables <- c("cp  [all]","chol  [all]","thalachh  [all]","exng  [all]","slp  [all]" ,"caa  [all]","thall [all]" )
