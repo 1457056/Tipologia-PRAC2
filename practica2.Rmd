@@ -1,8 +1,7 @@
 ---
 title: 'Pràctica 2: Com realitzar la neteja i l''anàlisi de dades?'
 author: "Gerard Ramos Gambús i Oriol Caravaca Muller"
-date: "2023-01-03"
-
+date: '2023-01-03'
 output:
   html_document:
     df_print: paged
@@ -14,67 +13,188 @@ number_sections: true
 theme: lumen
 ---
 
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE,error = TRUE)
 library(corrplot)
 library(VIM)
 library(car)
 library(caret)
-
+library(ggeffects)
 ```
 
 ## Carrega
 
+Carreguem el dataset, observem que s'ha carregat correctament amb 303 observacions i 14 variables.
 ```{r read csv}
 heart <- read.csv("heart.csv")
 
-```
+heart_numeric<-heart
 
-## Neteja de les dades
-
-### Exploració del dataset
-
-```{r summary}
+heart$sex <- as.factor(heart$sex)
+heart$cp <- as.factor(heart$cp)
+heart$fbs <- as.factor(heart$fbs)
+heart$restecg <- as.factor(heart$restecg)
+heart$exng <- as.factor(heart$exng)
+heart$slp <- as.factor(heart$slp)
+heart$caa <- as.factor(heart$caa)
+heart$thall <- as.factor(heart$thall)
+heart$output <- as.factor(heart$output)
 
 str(heart)
+```
+
+La descripció del dataset es la següent:
+
+  
+  - age: Edat de la persona
+  
+  - sex: Gènere de la persona
+  
+  - cp: Tipus de dolor toràcic 
+  
+        1= angina típica
+        2 = angina atípica
+        3 = dolor no anginós
+        4 = asimptomàtic
+        
+  - trtbps: Pressió arterial en repòs (en mm Hg)
+  
+  - chol: Colestorol en mg/dl obtingut mitjançant el sensor IMC
+  
+  - fbs: Sucre en sang en dejú > 120 mg/dl
+  
+        (1 = cert; 0 = fals)
+      
+  - restecg: Resultats electrocardiogràfics en repòs       
+  
+        0 = normal
+        1 = tenir una anomalia de l'ona ST-T
+        2 = mostra una hipertròfia ventricular esquerre probable o definitiva
+      
+  - thalachh: Freqüència cardíaca màxima aconseguida
+  
+  - exng: Angina induïda per l'exercici
+  
+        (1 = sí; 0 = no)
+      
+  - oldpeak: Depressió del ST induïda per l'exercici en relació amb el repòs
+  
+  - slp: El pendent del segment ST de l'exercici màxim
+  
+        0 = sense pendent
+        1 = pla
+        2 = pendent avall
+      
+  - caa: Nombre de vasos principals (0-3)
+  
+  - thall: Talassèmia
+    
+        0 = nul
+        1 = defecte fixat
+        2 = normal
+        3 = defecte reversible
+      
+  - output:Sortida
+    
+        0 = menys probabilitat d'atac cardíac 
+        1 = més probabilitat d'atac cardíac
+    
+
+
+## Exploració del dataset
+Extraiem un resum del la distribució de les variables i en busquem valors nulls. No apareixen valors nulls en les dades.
+```{r summary}
+
 summary(heart)
 
 colSums(is.na(heart))
 colSums(heart == " ")
 ```
 
-### Visualització
+## Visualització
 
-Només se seleccionen les variables on és possible que hi hagi outliers havent vist abans els rangs on es mouen aquestes variables i el summary
+Visualitzem la distribució de les variables, utilitzem diagrames de caixa per a les variables continues i diagrames de barres per a les variables categoriques.
 
-```{r outliers}
-boxplot(heart$trtbps)
-boxplot(heart$chol)
-boxplot(heart$restecg)
-boxplot(heart$thalachh)
-boxplot(heart$oldpeak)
-boxplot(heart$slp)
-boxplot(heart$caa)
-boxplot(heart$thall)
+```{r visualitzacio}
+par(mfrow=c(2,2))
+
+boxplot(heart$age, horizontal=TRUE, main="Edat (age)" ,outcol="red")
+barplot(prop.table(table(heart$sex)),main="Sexe (sex)")
+barplot(prop.table(table(heart$cp)),main="Dolor toràcic (cp) ")
+boxplot(heart$trtbps, horizontal=TRUE, main="Pressió arterial (trtbps)" ,outcol="red")
+boxplot(heart$chol, horizontal=TRUE, main="Colestorol (chol)",outcol="red")
+barplot(prop.table(table(heart$fbs)),main="Sucre en sang (fbs)")
+barplot(prop.table(table(heart$restecg)),main="Electrocardiogràfs (restecg)")
+boxplot(heart$thalachh, horizontal=TRUE, main="F. cardíaca màxima (thalachh)",outcol="red")
+barplot(prop.table(table(heart$exng)),main="Angina induïda (exng)")
+boxplot(heart$oldpeak, horizontal=TRUE, main="Depressió del ST (oldpeak)",outcol="red")
+barplot(prop.table(table(heart$slp)),main="Pendent del ST (slp) ")
+barplot(prop.table(table(heart$slp)), main="Nº Vasos (caa)")
+barplot(prop.table(table(heart$thall)),main="Talassèmia (thall)")
+barplot(prop.table(table(heart$output)),main="Prob. atac de cor (output)")
+
 ```
 
-Hi ha presència d'outliers a les variables.
+## Neteja de les dades
 
-El que es farà és reomplir les variables que més outliers continguin.
+Tenint en compte la descipció, exploració i visualització del dataset, es determina que existeixen valors atipics, Aixì doncs es decideix fer una imputació de valors per eliminar la presencia d'aquest outliners.
+
+Per el valor null que ens apareix a la variable categorica Talassèmia s'inputa el valor 'normal'; per el valor 4 de la variable 'caa' s'imputa el valor 3; per a la resta d'oultiners de les variables continues s'utilitza  l'algorimetme KNN per fer-ne l'imputació.
+
+### Valors atípics
+
+Eliminem els valor atipics.
 
 ```{r find outliers}
+
 outliers_trtbps <- which(heart$trtbps %in% boxplot.stats(heart$trtbps)$out)
 heart$trtbps[outliers_trtbps] <- NA
+outliers_chol <- which(heart$chol %in% boxplot.stats(heart$chol)$out)
+heart$chol[outliers_chol] <- NA
+outliers_thalachh <- which(heart$thalachh %in% boxplot.stats(heart$thalachh)$out)
+heart$thalachh[outliers_thalachh] <- NA
+outliers_oldpeak <- which(heart$oldpeak %in% boxplot.stats(heart$oldpeak)$out)
+heart$oldpeak[outliers_oldpeak] <- NA
+
 ```
 
-```{r fill outliers}
-heart <- kNN(heart, 
-                  variable=c('trtbps'), 
-                  dist_var=c('trtbps','chol'),
-                  imp_var = "FALSE", k = 5)
+### Imputació de valors
+
+Imputem thall i caa.
+```{r fill categoriques}
+heart$thall[heart$thall ==0] <- 2
+heart$caa[heart$caa ==4] <- 3
 ```
+  
+
+Imputem els outliners.
+```{r fill outliers}
+
+columnesImputar<-colnames(heart)[colSums(is.na(heart)) > 0]
+heart <-  kNN(heart, variable = columnesImputar, k = 5)
+
+```
+
 
 ## Anàlisi de dades
+
+```{r }
+props<-prop.table(table(heart$sex))
+lbls <-  c("Dona", "Home")
+pct <- round(props/sum(props)*100)
+lbls <- paste(lbls, pct) 
+lbls <- paste(lbls,"%",sep="") 
+pie( props, labels = lbls , main = "Percentatge de observacions segons sexe")
+```
+```{r }
+props<-prop.table(table(heart$output))
+lbls <-  c("Baix", "Alt")
+pct <- round(props/sum(props)*100)
+lbls <- paste(lbls, pct) 
+lbls <- paste(lbls,"%",sep="") 
+pie( props, labels = lbls , main = "Percentatge pacients segons risc d'infart")
+```
 
 ```{r sex vs cp}
 counts <- table(heart$sex, heart$cp)
@@ -84,8 +204,7 @@ barplot(prop.table(counts), beside = TRUE, col = colors,
         xlab = "Gènere",
         ylab = "Percentatge",
         main = "Tipus de dolor de pit segons el gènere",
-        legend = c("Dona", "Home"),
-        fill = colors)
+        legend = c("Dona", "Home"))
 ```
 
 Atenent al gràfic, els homes tenen bastantes mes angines típiques que les dones.
@@ -98,8 +217,7 @@ barplot(prop.table(counts), beside = TRUE, col = colors,
         xlab = "Electrocardiographic results",
         ylab = "Percentatge",
         main = "Possibilitat de tenir un atac al cor en funció dels resultats electro",
-        legend = c("Baixa prob", "Alta prob"),
-        fill = colors)
+        legend = c("Baixa prob", "Alta prob"))
 ```
 
 Segons els resultats electrocardiogràfics, hi ha una alta probabilitat de tenir un atac al cor si hi ha anomalies de l'ona ST-T.
@@ -117,30 +235,119 @@ barplot(prop.table(counts), beside = TRUE, col = colors,
         xlab = "Probabilitat 0 baixa - 1 alta",
         ylab = "Percentatge",
         main = "Possibilitat de tenir un atac al cor en funció de l'edat",
-        legend = c("Jove/Adult", "Adult", "Gent gran", "Avis"),
-        fill = colors)
+        legend = c("Jove/Adult", "Adult", "Gent gran", "Avis"))
 ```
 
 Les persones Adultes que tenen entre 40 i 55 anys son les més propenses a patir un atac al cor.
 
-## Regressió logística.
+## Normalitat i Homoscedasticitat.
 
-### Generació dels conjunts d'entrenament i de test
+### Normalitat
 
-```{r RL1 }
-set.seed(1234)
+Per a cada variable continua s'aplica un test Shapiro-Wilk  i s'en mostra la distribució amb un grafic de densitat per comprovar-ne la normalitat. Només la variable 'chol' passa el test, afortunadament sabem que  gracies el teorema del limit central si el nombre d'observacions es major que 30 les variables es poden tractar coma  variables amb distribució normal.
+```{r}
+par(mfrow=c(3,2))
+variables <- c("age","trtbps","chol","thalachh","oldpeak")
+for ( vars in variables){ 
+  x<-heart[,vars]
+  plot(density(x), main=vars )
+  abline(v = mean(x), col = "darkred")
+  res<- shapiro.test(x)
+  print(paste("Shapiro-Wilk per a la variable",vars))
+  print(res)
+  if( res$p.value >0.05){
+    print(paste(vars,"segeuix una distribució normal"))
+  } else {
+        print(paste(vars,"No segeuix una distribució normal"))
+  }
+  
+  x_sa<-heart[heart$output==0,vars]
+  x_malalt<-heart[heart$output==1,vars]
+   if( shapiro.test(x_sa)$p.value>0.05){
+    print(paste(paste("Per a la variable",vars),"la distribució dels pacients sans segueix una distribució normal."))
+  } else {
+     print(paste(paste("Per a la variable",vars),"la distribució dels pacients sans No segueix una distribució normal."))
+  } 
+  if( shapiro.test(x_sa)$p.value>0.05){
+    print(paste(paste("Per a la variable",vars),"la distribució dels pacients malats segueix una distribució normal."))
+  } else {
+     print(paste(paste("Per a la variable",vars),"la distribució dels pacients malalts No segueix una distribució normal."))
+  }
+  x_dona<-heart[heart$sex==0,vars]
+  x_home<-heart[heart$sex==1,vars]
+   if( shapiro.test(x_dona)$p.value>0.05){
+    print(paste(paste("Per a la variable",vars),"la distribució de les dones segueix una distribució normal."))
+  } else {
+     print(paste(paste("Per a la variable",vars),"la distribució dels dones No segueix una distribució normal."))
+  } 
+  if( shapiro.test(x_home)$p.value>0.05){
+    print(paste(paste("Per a la variable",vars),"la distribució dels homes segueix una distribució normal."))
+  } else {
+     print(paste(paste("Per a la variable",vars),"la distribució dels homes No segueix una distribució normal."))
+  }
+}
 
-split <- sample(c(TRUE, FALSE), nrow(heart), replace=TRUE, prob=c(0.8,0.2))
-train  <- heart[split, ]
-test   <- heart[!split, ]
 ```
+
+### Homoscedasticitat
+
+Per cada variable continua es comprova la Homoscedasticitat entre la seva distribuciós en relació a la probabilitat de patir un infart i al sexe.
+```{r}
+
+variables <- c("age","trtbps","chol","thalachh","oldpeak")
+for ( vars in variables){ 
+  x_sa<-heart[heart$output==0,vars]
+  x_malalt<-heart[heart$output==1,vars]
+   if( var.test(x_sa,x_malalt)$statistic==1){
+    print(paste("No exisisteix diferencies entre variences respecte la probabilitat de infart per a la variable",vars))
+  } else {
+    print(paste("Exisisteix diferencies entre variences respecte la probabilitat de infart per a la variable",vars))
+  } 
+  
+  x_dona<-heart[heart$sex==0,vars]
+  x_home<-heart[heart$sex==1,vars]
+  if( var.test(x_dona,x_home)$statistic==1){
+    print(paste("No exisisteix diferencies entre variences respecte el sexe per a la variable",vars))
+  } else {
+    print(paste("Exisisteix diferencies entre variences respecte el sexe per a la variable",vars))
+  }
+}
+
+```
+
+
+## El sexe influeix en el risc de infart?.
+
+
+### Hipòtesi nul·la i l’alternativa
+
+H0 :  No existeix correlacio entre les variables
+
+H1 :  Existeixen correlació entre les variables.
+
+### Test
+
+Apliquem Chi-square test, com que p < 0.05 rebutjem la hipotesis nulla. El sexe afecta a la nota.
+```{r}
+ chisq.test(heart$sex, heart$output, correct=FALSE)
+
+```
+## L' edat afecta al risc de infart?.(per exemple)
+
+### Hipòtesi nul·la i l’alternativa
+
+
+### Test
+
+
 
 ### Estimació del model
 
 #### Estimació model.
 
 ```{r RL2}
-model <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,        family=binomial(link=logit))
+
+model <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,   family=binomial(link=logit))
 summary(model)
 
 ```
@@ -150,26 +357,18 @@ summary(model)
 Al fer un estudi de la col·linealitat, veiem que tant per la matriu de correlacions com utilitzant els coeficients VIF no existeix col·linealitat.
 
 ```{r RL3}
-corrplot(cor(heart), method = "number")
+corrplot(cor(heart_numeric), method = "number")
 vif(model)
 
 ```
 
-Com es pot veure, no hi ha presència de col·linealitat.
-
-Tampoc es veu una clara correlació entre variables.
-
-```{r diagnosi}
-qqnorm(heart$output, pch = 1, frame = FALSE)
-qqline(heart$output, col = "steelblue", lwd = 2)
-```
 
 #### Model final
 
-Tenint en compte els la diferencia entre nivells de significació ens quedem amb aquelles variables que compleixen p\<α on α =0,5. Així doncs obtenim el model final:
+Tenint en compte els la diferencia entre nivells de significació ens quedem amb aquelles variables que compleixen p\<α on α =0,1. Així doncs obtenim el model final:
 
 ```{r RL4}
-modelF <- glm(output~age+sex+cp+trtbps+chol+fbs+restecg+thalachh+exng+oldpeak+slp+caa+thall,data=train,        family=binomial(link=logit))
+modelF <- glm(output~sex+cp+chol+thalachh+exng+slp+caa+thall,data=train,        family=binomial(link=logit))
 summary(modelF)
 
 ```
@@ -240,4 +439,22 @@ El model és bo ja que la deviança residual és menor a la nul·la.
 ```{r bondat}
 G <- modelF$null.deviance - modelF$deviance
 G
+```
+```{r }
+
+
+
+
+variables <- c("cp  [all]","chol  [all]","thalachh  [all]","exng  [all]","slp  [all]" ,"caa  [all]","thall [all]" )
+par(mfrow=c(2,2))
+
+plot(ggpredict(modelF,c("cp  [all]","sex")))
+plot(ggpredict(modelF,c("chol  [all]","sex")))
+plot(ggpredict(modelF,c("thalachh  [all]","sex")))
+plot(ggpredict(modelF,c("exng  [all]","sex")))
+plot(ggpredict(modelF,c("slp  [all]","sex")))
+plot(ggpredict(modelF,c("caa  [all]","sex")))
+plot(ggpredict(modelF,c("thall [all]","sex")))
+
+
 ```
