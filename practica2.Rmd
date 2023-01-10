@@ -3,13 +3,15 @@ title: 'Pràctica 2: Com realitzar la neteja i l''anàlisi de dades?'
 author: "Gerard Ramos Gambús i Oriol Caravaca Muller"
 date: "2023-01-03"
 output:
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
   html_document:
     df_print: paged
     toc: yes
     toc_float: yes
     toc_collapsed: yes
-  pdf_document:
-    toc: yes
 toc_depth: 4
 number_sections: yes
 theme: lumen
@@ -28,8 +30,9 @@ library(ggeffects)
 ## Carrega
 
 Carreguem el dataset, observem que s'ha carregat correctament amb 303 observacions i 14 variables.
+
 ```{r read csv}
-heart <- read.csv("C:\\Users\\Oriol\\Desktop\\UOC\\Tipologia i cicle de dades\\prac2\\Tipologia-PRAC2\\heart.csv")
+heart <- read.csv("heart.csv")
 
 heart_numeric<-heart
 
@@ -48,64 +51,63 @@ str(heart)
 
 La descripció del dataset es la següent:
 
-  
-  - age: Edat de la persona
-  
-  - sex: Gènere de la persona
-  
-  - cp: Tipus de dolor toràcic 
-  
-        1= angina típica
+-   age: Edat de la persona
+
+-   sex: Gènere de la persona
+
+-   cp: Tipus de dolor toràcic
+
+        1 = angina típica
         2 = angina atípica
         3 = dolor no anginós
         4 = asimptomàtic
-        
-  - trtbps: Pressió arterial en repòs (en mm Hg)
-  
-  - chol: Colestorol en mg/dl obtingut mitjançant el sensor IMC
-  
-  - fbs: Sucre en sang en dejú > 120 mg/dl
-  
+
+-   trtbps: Pressió arterial en repòs (en mm Hg)
+
+-   chol: Colestorol en mg/dl obtingut mitjançant el sensor IMC
+
+-   fbs: Sucre en sang en dejú \> 120 mg/dl
+
         (1 = cert; 0 = fals)
-      
-  - restecg: Resultats electrocardiogràfics en repòs       
-  
+
+-   restecg: Resultats electrocardiogràfics en repòs
+
         0 = normal
         1 = tenir una anomalia de l'ona ST-T
         2 = mostra una hipertròfia ventricular esquerre probable o definitiva
-      
-  - thalachh: Freqüència cardíaca màxima aconseguida
-  
-  - exng: Angina induïda per l'exercici
-  
+
+-   thalachh: Freqüència cardíaca màxima aconseguida
+
+-   exng: Angina induïda per l'exercici
+
         (1 = sí; 0 = no)
-      
-  - oldpeak: Depressió del ST induïda per l'exercici en relació amb el repòs
-  
-  - slp: El pendent del segment ST de l'exercici màxim
-  
+
+-   oldpeak: Depressió del ST induïda per l'exercici en relació amb el repòs
+
+-   slp: El pendent del segment ST de l'exercici màxim
+
         0 = sense pendent
         1 = pla
         2 = pendent avall
-      
-  - caa: Nombre de vasos principals (0-3)
-  
-  - thall: Talassèmia
-    
+
+-   caa: Nombre de vasos principals (0-3)
+
+-   thall: Talassèmia
+
         0 = nul
         1 = defecte fixat
         2 = normal
         3 = defecte reversible
-      
-  - output:Sortida
-    
+
+-   output:Sortida
+
         0 = menys probabilitat d'atac cardíac 
         1 = més probabilitat d'atac cardíac
-    
-
 
 ## Exploració del dataset
+
 Extraiem un resum del la distribució de les variables i en busquem valors nulls. No apareixen valors nulls en les dades.
+
 ```{r summary}
 
 summary(heart)
@@ -142,7 +144,7 @@ barplot(prop.table(table(heart$output)),main="Prob. atac de cor (output)")
 
 Tenint en compte la descipció, exploració i visualització del dataset, es determina que existeixen valors atipics, Aixì doncs es decideix fer una imputació de valors per eliminar la presencia d'aquest outliners.
 
-Per el valor null que ens apareix a la variable categorica Talassèmia s'inputa el valor 'normal'; per el valor 4 de la variable 'caa' s'imputa el valor 3; per a la resta d'oultiners de les variables continues s'utilitza  l'algorimetme KNN per fer-ne l'imputació.
+Per el valor null que ens apareix a la variable categorica Talassèmia s'inputa el valor 'normal'; per el valor 4 de la variable 'caa' s'imputa el valor 3; per a la resta d'oultiners de les variables continues s'utilitza l'algorimetme KNN per fer-ne l'imputació.
 
 ### Valors atípics
 
@@ -164,20 +166,20 @@ heart$oldpeak[outliers_oldpeak] <- NA
 ### Imputació de valors
 
 Imputem thall i caa.
+
 ```{r fill categoriques}
 heart$thall[heart$thall ==0] <- 2
 heart$caa[heart$caa ==4] <- 3
 ```
-  
 
 Imputem els outliners.
+
 ```{r fill outliers}
 
 columnesImputar<-colnames(heart)[colSums(is.na(heart)) > 0]
 heart <-  kNN(heart, variable = columnesImputar, k = 5)
 
 ```
-
 
 ## Anàlisi de dades
 
@@ -189,6 +191,7 @@ lbls <- paste(lbls, pct)
 lbls <- paste(lbls,"%",sep="") 
 pie( props, labels = lbls , main = "Percentatge de observacions segons sexe")
 ```
+
 ```{r }
 props<-prop.table(table(heart$output))
 lbls <-  c("Baix", "Alt")
@@ -246,7 +249,8 @@ Les persones Adultes que tenen entre 40 i 55 anys son les més propenses a patir
 
 ### Normalitat
 
-Per a cada variable continua s'aplica un test Shapiro-Wilk  i s'en mostra la distribució amb un grafic de densitat per comprovar-ne la normalitat. Només la variable 'chol' passa el test, afortunadament sabem que  gracies el teorema del limit central si el nombre d'observacions es major que 30 les variables es poden tractar coma  variables amb distribució normal.
+Per a cada variable continua s'aplica un test Shapiro-Wilk i s'en mostra la distribució amb un grafic de densitat per comprovar-ne la normalitat. Només la variable 'chol' passa el test, afortunadament sabem que gracies el teorema del limit central si el nombre d'observacions es major que 30 les variables es poden tractar coma variables amb distribució normal.
+
 ```{r}
 par(mfrow=c(3,2))
 variables <- c("age","trtbps","chol","thalachh","oldpeak")
@@ -293,7 +297,8 @@ for ( vars in variables){
 
 ### Homoscedasticitat
 
-Per cada variable continua es comprova la Homoscedasticitat entre la seva distribuciós en relació a la probabilitat de patir un infart i al sexe.
+Per cada variable continua es comprova la Homoscedasticitat entre la seva distribució en relació a la probabilitat de patir un infart i al sexe.
+
 ```{r}
 
 variables <- c("age","trtbps","chol","thalachh","oldpeak")
@@ -317,34 +322,56 @@ for ( vars in variables){
 
 ```
 
-
 ## El sexe influeix en el risc de infart?.
 
+### Hipòtesi nul·la i l'alternativa
 
-### Hipòtesi nul·la i l’alternativa
+H0 : No existeix correlacio entre les variables
 
-H0 :  No existeix correlacio entre les variables
-
-H1 :  Existeixen correlació entre les variables.
+H1 : Existeixen correlació entre les variables.
 
 ### Test
 
-Apliquem Chi-square test, com que p < 0.05 rebutjem la hipotesis nulla. El sexe afecta a la nota.
+Apliquem Chi-square test, com que p \< 0.05 rebutjem la hipotesis nulla. El sexe afecta a la nota.
+
 ```{r}
  chisq.test(heart$sex, heart$output, correct=FALSE)
 
 ```
-## L' edat afecta al risc de infart?.(per exemple)
 
-### Hipòtesi nul·la i l’alternativa
+## L'edat afecta al risc de infart?.
 
+### Hipòtesi nul·la i l'alternativa
+
+H0 : No existeix correlacio entre les variables
+
+H1 : Existeixen correlació entre les variables.
 
 ### Test
 
+Apliquem Chi-square test, com que p \> 0.05 acceptem la hipotesis nulla. L'edat no influeix en el risc d'infart.
 
+```{r}
+ chisq.test(heart$age, heart$output, correct=FALSE)
+```
+
+## El colesterol en sang afecta al risc de infart?.
+
+### Hipòtesi nul·la i l'alternativa
+
+H0 : No existeix correlacio entre les variables
+
+H1 : Existeixen correlació entre les variables.
+
+### Test
+
+Apliquem Chi-square test, com que p \> 0.05 acceptem la hipotesis nulla. El colesterol en sang no influeix en el risc d'infart.
+
+```{r}
+ chisq.test(heart$chol, heart$output, correct=FALSE)
+```
 
 ### Estimació del model
-
 
 ### Generació dels conjunts d'entrenament i de test
 
@@ -373,7 +400,6 @@ corrplot(cor(heart_numeric), method = "number")
 vif(model)
 
 ```
-
 
 #### Model final
 
@@ -428,9 +454,6 @@ cf$byClass["Specificity"]
 
 ```{r calcul OR}
 exp(coefficients(modelF))
-
-
-
 ```
 
 El que indica el valor OR de cada una de les variables és:
@@ -455,8 +478,8 @@ El model és bo ja que la deviança residual és menor a la nul·la.
 G <- modelF$null.deviance - modelF$deviance
 G
 ```
-```{r }
 
+```{r }
 
 variables <- c("cp  [all]","chol  [all]","thalachh  [all]","exng  [all]","slp  [all]" ,"caa  [all]","thall [all]" )
 par(mfrow=c(2,2))
