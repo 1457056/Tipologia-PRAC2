@@ -3,15 +3,15 @@ title: 'Pràctica 2: Com realitzar la neteja i l''anàlisi de dades?'
 author: "Gerard Ramos Gambús i Oriol Caravaca Muller"
 date: "2023-01-03"
 output:
-  word_document:
-    toc: yes
-  pdf_document:
-    toc: yes
   html_document:
     df_print: paged
     toc: yes
     toc_float: yes
     toc_collapsed: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
 toc_depth: 4
 number_sections: yes
 theme: lumen
@@ -24,7 +24,8 @@ library(corrplot)
 library(VIM)
 library(car)
 library(caret)
-library(ggeffects)
+library(ggplot2)
+library(modelsummary)
 library(pROC)
 ```
 
@@ -185,21 +186,22 @@ heart <-  kNN(heart, variable = columnesImputar, k = 5)
 ## Anàlisi de dades
 
 ```{r }
+
+par(mfrow=c(1,2))
+
 props<-prop.table(table(heart$sex))
 lbls <-  c("Dona", "Home")
 pct <- round(props/sum(props)*100)
 lbls <- paste(lbls, pct) 
 lbls <- paste(lbls,"%",sep="") 
-pie( props, labels = lbls , main = "Percentatge de observacions segons sexe")
-```
+pie( props, labels = lbls , main = "% obs. segons sexe")
 
-```{r }
 props<-prop.table(table(heart$output))
 lbls <-  c("Baix", "Alt")
 pct <- round(props/sum(props)*100)
 lbls <- paste(lbls, pct) 
 lbls <- paste(lbls,"%",sep="") 
-pie( props, labels = lbls , main = "Percentatge pacients segons risc d'infart")
+pie( props, labels = lbls , main = "% obs segons risc d'infart")
 ```
 
 ```{r sex vs cp}
@@ -372,7 +374,7 @@ Apliquem Chi-square test, com que p \> 0.05 acceptem la hipotesis nulla. El cole
  chisq.test(heart$chol, heart$output, correct=FALSE)
 ```
 
-### Estimació del model
+## Model de Regressió logistica
 
 ### Generació dels conjunts d'entrenament i de test
 
@@ -383,7 +385,11 @@ train  <- heart[split, ]
 test   <- heart[!split, ]
 ```
 
-#### Estimació model.
+### Estimació del model 
+
+
+
+#### Estimació inicial 
 
 ```{r RL2}
 
@@ -402,7 +408,7 @@ vif(model)
 
 ```
 
-#### Model final
+### Model final
 
 Tenint en compte els la diferencia entre nivells de significació ens quedem amb aquelles variables que compleixen p\<α on α =0,1. Així doncs obtenim el model final:
 
@@ -412,9 +418,7 @@ summary(modelF)
 
 ```
 
-```{r fitted vs ajusted}
-qplot(modelF$fitted.values, modelF$residuals) + geom_smooth(method = "lm")
-```
+
 
 #### Bondat de l'ajust mitjançant Chi-quadrat.
 
@@ -428,9 +432,12 @@ p=1-pchisq(chi2, df=d)
 resp <-c(chi2,d,p)
 names(resp)<-c("Chi-quadrat","Graus" ,"p"  )
 resp
+
+G <- modelF$null.deviance - modelF$deviance
+G
 ```
 
-### Avaluació del model
+#### Avaluació del model
 
 ```{r RL6}
 convert<-function (val){
@@ -451,52 +458,7 @@ cf$byClass["Specificity"]
 
 ```
 
-### Estudi del OR del model de regressió logistica
-
-```{r calcul OR}
-exp(coefficients(modelF))
-```
-
-El que indica el valor OR de cada una de les variables és:
-
--   OR\<1 indica una associació protectora, que vol dir que es poc probable que succeixi un event.
-
--   OR=1 indica que no hi ha associació entre variables.
-
--   OR\>1 indica que hi ha associació entre variables, com més gran sigui el número més gran és l'associació.
-
-Les variables que tenen OR per sobre de 1 les podem considerar com a factors de risc.
-
-### Bondat de l'ajust
-
-```{r sum}
-summary(modelF)
-```
-
-El model és bo ja que la deviança residual és menor a la nul·la.
-
-```{r bondat}
-G <- modelF$null.deviance - modelF$deviance
-G
-```
-
-```{r }
-
-variables <- c("cp  [all]","chol  [all]","thalachh  [all]","exng  [all]","slp  [all]" ,"caa  [all]","thall [all]" )
-par(mfrow=c(2,2))
-
-plot(ggpredict(modelF,c("cp  [all]","sex")))
-plot(ggpredict(modelF,c("chol  [all]","sex")))
-plot(ggpredict(modelF,c("thalachh  [all]","sex")))
-plot(ggpredict(modelF,c("exng  [all]","sex")))
-plot(ggpredict(modelF,c("slp  [all]","sex")))
-plot(ggpredict(modelF,c("caa  [all]","sex")))
-plot(ggpredict(modelF,c("thall [all]","sex")))
-
-
-```
-
-### Corva ROC
+#### Corva ROC
 
 ```{r}
 prob=predict(modelF, heart, type="response")
@@ -510,7 +472,44 @@ plot(r)
 ```{r}
 auc(r)
 ```
-
 Com es pot veure, la corva ens està representant la sensibilitat en front l\'especificitat del model.
 
 Una forma de determinar com de bona és la corva ROC és atenent a l\'àrea sota la corva (AUC). Normalment com més a prop de 1, més bona és, i si està per sota de 0,5 és doelnta. En el nostre cas tenim un valor AUC de **0.9339**, que determina que tenim una corva molt bona.
+
+### Estudi del OR del model de regressió logistica 
+
+```{r calcul OR}
+exp(coefficients(modelF))
+
+
+```
+
+
+
+Dels odds-ratio de cp s'en dedueix que el dolor toràcic es el principal indicador de un alt risc de infart. Tenint els pacients amb una angina atípica 10 vegades la probabilitat d'ocurrencia d'un risc alt de infart, els pacients amb una angina típica 4.7 vegades i els pacients amb un dolor agngios 7.7 vegades més probabilitats que la resta de pacients.
+
+Aixi mateix, el pendent del segment ST és també un bon indicador de la probabilitat de ocurrencia de un risc alt de infart, sent els pacients amb un pendent negatiu 4.2 vegades més propensos a tenir un risc alt de infart.
+
+Per altra banda es pot veure que com a principals factors protectors contre risc de infart trobem els vasos afectats, i el sexe on, per exemple, l’odds-ratio estimat per a sex=1 és 0.22, de manera que l’ocurrència de un risc alt de infart és 0,22 vegades menor, en relació al sexe=0.
+
+
+### Visualitzacio del model
+
+Finalment visualitzem el model de regressió. On es pot veure com afecten cada una de les variables al risc de infart. Sent aquelles variables a la esquerra de la grafica del model variables protectores i aquelles variables a la dreta factors de risc de cara a patir un infart. Així mateix aquelles variables que cauen a la zona gris central no tenen afectació real en la probabiltat de risc de infart.
+
+```{r }
+
+b <- list(geom_vline(xintercept = 0, color = 'orange'),
+          annotate("rect", alpha = .1,
+                   xmin = -.5, xmax = .5, 
+                   ymin = -Inf, ymax = Inf),
+          geom_point(aes(y = term, x = estimate), alpha = .3, 
+                     size = 10, color = 'red'))
+
+modelplot(modelF , background = b)
+
+```
+
+
+
+
