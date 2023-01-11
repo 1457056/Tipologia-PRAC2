@@ -25,6 +25,7 @@ library(VIM)
 library(car)
 library(caret)
 library(ggeffects)
+library(pROC)
 ```
 
 ## Carrega
@@ -494,3 +495,22 @@ plot(ggpredict(modelF,c("thall [all]","sex")))
 
 
 ```
+
+### Corva ROC
+
+```{r}
+prob=predict(modelF, heart, type="response")
+r=roc(heart$output, prob, data=heart)
+```
+
+```{r}
+plot(r)
+```
+
+```{r}
+auc(r)
+```
+
+Com es pot veure, la corva ens està representant la sensibilitat en front l\'especificitat del model.
+
+Una forma de determinar com de bona és la corva ROC és atenent a l\'àrea sota la corva (AUC). Normalment com més a prop de 1, més bona és, i si està per sota de 0,5 és doelnta. En el nostre cas tenim un valor AUC de **0.9339**, que determina que tenim una corva molt bona.
