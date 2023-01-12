@@ -10,6 +10,7 @@ output:
     toc_collapsed: yes
   pdf_document:
     toc: yes
+    latex_engine: xelatex
   word_document:
     toc: yes
 toc_depth: 4
@@ -34,6 +35,7 @@ library(pROC)
 Carreguem el dataset, observem que s'ha carregat correctament amb 303 observacions i 14 variables.
 
 ```{r read csv}
+
 heart <- read.csv("heart.csv")
 
 heart_numeric<-heart
